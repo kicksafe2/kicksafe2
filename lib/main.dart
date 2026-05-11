@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screen/ble_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -21,11 +22,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text('KickSafe 앱 시작!'),
-        ),
-      ),
+      home: const BleScreen()
     );
   }
 }
