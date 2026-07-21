@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>킥보드 센서(ESP32)와 블루투스로 연결하기 위해 필요합니다.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>킥보드 센서(ESP32)와 블루투스로 연결하기 위해 필요합니다.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
