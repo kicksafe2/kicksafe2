@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'screen/ble_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'theme/app_theme.dart';
+import 'routes/app_routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,11 +19,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'KickSafe',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
-      ),
-      home: const BleScreen()
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,           // 기존 theme: ThemeData(...) 이 부분을 이걸로 교체
+      initialRoute: AppRoutes.splash,  // 이 두 줄 추가
+      routes: AppRoutes.routes,
     );
   }
 }
