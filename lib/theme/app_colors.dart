@@ -33,7 +33,9 @@ class AppColors {
   static const switchBackground = Color(0xFFCBCED4);
 
   static const ring = Color(0xFFB5B5B5); // oklch(0.708 0 0) 근사
-
+  // ---- Brand gradient (로그인/홈/기록/점수결과 등 상단·버튼에 공통 사용) ----
+  static const brandGradientStart = Color(0xFF7C3AED); // violet-600
+  static const brandGradientEnd = Color(0xFF4C1D95); // purple-900
   // ---- Chart colors (필요할 때만 사용) ----
   static const chart1 = Color(0xFFE07B39);
   static const chart2 = Color(0xFF2A9D8F);
