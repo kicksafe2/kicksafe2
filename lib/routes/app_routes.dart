@@ -43,7 +43,7 @@ class AppRoutes {
         drivingBlocked: (_) => const DrivingBlockedScreen(),
         scoreResult: (_) => const ScoreResultScreen(),
         rewardBanner: (_) => const RewardBannerScreen(),
-        history: (_) => const HistoryScreen(),
+        history: (_) =>  HistoryScreen(),
         account: (_) => const AccountScreen(),
         badgeMap: (_) => const BadgeMapScreen(),
       };
