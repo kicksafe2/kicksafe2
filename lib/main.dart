@@ -27,8 +27,8 @@ class MyApp extends StatelessWidget {
       title: 'KickSafe',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      // TODO: 헬멧 인식 화면 테스트용 임시 설정. 테스트 끝나면 AppRoutes.splash로 되돌릴 것.
-      initialRoute: AppRoutes.helmetVerification,
+      // TODO: 홈 화면 테스트용 임시 설정. 테스트 끝나면 AppRoutes.splash로 되돌릴 것.
+      initialRoute: AppRoutes.home,
       routes: AppRoutes.routes,
     );
   }
