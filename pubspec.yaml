@@ -12,8 +12,10 @@ dependencies:
   tflite_flutter: ^0.10.4
   camera: ^0.10.5+9
   image: ^4.1.7
+  shared_preferences: ^2.3.2
+  firebase_core: ^2.27.0
 
 flutter:
   assets:
-    - assets/model/model_unquant.tflite
-    - assets/model/labels.txt
+    - lib/assets/model/model_unquant.tflite
+    - lib/assets/model/labels.txt
