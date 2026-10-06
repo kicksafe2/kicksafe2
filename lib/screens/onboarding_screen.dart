@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../routes/app_routes.dart';
-import '../services/local_auth_service.dart';
+import '../services/onboarding_store.dart';
 import '../widgets/kicksafe_ui.dart';
 
 /// Figma 디자인(OnboardingScreen.tsx): 4단계 온보딩.
@@ -26,7 +26,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _complete() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    await LocalAuthService.completeOnboarding(name);
+    await OnboardingStore.complete(name);
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(AppRoutes.login);
   }

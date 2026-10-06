@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../routes/app_routes.dart';
-import '../services/local_auth_service.dart';
+import '../services/onboarding_store.dart';
 import '../widgets/kicksafe_ui.dart';
 
 /// Figma 디자인(SplashScreen.tsx): 보라색 그라데이션 배경에 로고 + 바운스 점 3개.
@@ -30,7 +30,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _next() async {
-    final done = await LocalAuthService.hasCompletedOnboarding();
+    final done = await OnboardingStore.hasCompleted();
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(
       done ? AppRoutes.login : AppRoutes.onboarding,

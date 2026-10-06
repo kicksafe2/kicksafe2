@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../routes/app_routes.dart';
-import '../services/local_auth_service.dart';
+import '../services/account_service.dart';
 import '../widgets/kicksafe_ui.dart';
 
 /// Figma 디자인(LoginScreen.tsx): 헤더 + 흰색 카드 로그인 폼.
-/// 가입한 계정(아이디/비밀번호)과 일치하면 홈으로 이동한다.
+/// Firebase Auth로 로그인한다. 아이디(또는 이메일)와 비밀번호가 맞으면 홈으로 이동.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -31,16 +31,21 @@ class _LoginScreenState extends State<LoginScreen> {
     if (username.isEmpty || password.isEmpty || _busy) return;
 
     setState(() => _busy = true);
-    final ok = await LocalAuthService.login(username, password);
+    String? error;
+    try {
+      await AccountService.signIn(username, password);
+    } on AccountException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = '로그인에 실패했습니다. 잠시 후 다시 시도해주세요';
+    }
     if (!mounted) return;
     setState(() => _busy = false);
 
-    if (ok) {
+    if (error == null) {
       Navigator.of(context).pushReplacementNamed(AppRoutes.home);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('아이디 또는 비밀번호가 올바르지 않습니다')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -114,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             label: '아이디',
                             icon: Icons.person_outline,
                             controller: _usernameController,
-                            hint: '아이디를 입력하세요',
+                            hint: '아이디 또는 이메일을 입력하세요',
                           ),
                           const SizedBox(height: 24),
                           KsLabeledField(

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../routes/app_routes.dart';
-import '../services/local_auth_service.dart';
+import '../services/account_service.dart';
 import '../widgets/kicksafe_ui.dart';
 
 /// Figma 디자인(SignupScreen.tsx): 3단계 회원가입.
 /// 1 기본정보(이름/생년월일/주소) → 2 계정정보(아이디 중복확인/비밀번호) → 3 연락처 + 약관 동의.
+/// 가입 정보는 Firebase Auth(이메일/비밀번호) + Firestore(users, usernames)에 저장된다.
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -72,13 +73,33 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _birthdate.text = '${picked.year}-$m-$d');
   }
 
+  String? _usernameError;
+
   Future<void> _checkUsername() async {
-    final taken = await LocalAuthService.isUsernameTaken(_username.text.trim());
-    if (!mounted) return;
-    setState(() {
-      _usernameChecked = true;
-      _usernameAvailable = !taken;
-    });
+    final username = _username.text.trim();
+    final invalid = AccountService.validateUsername(username);
+    if (invalid != null) {
+      setState(() {
+        _usernameChecked = false;
+        _usernameError = invalid;
+      });
+      return;
+    }
+    try {
+      final available = await AccountService.isUsernameAvailable(username);
+      if (!mounted) return;
+      setState(() {
+        _usernameError = null;
+        _usernameChecked = true;
+        _usernameAvailable = available;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _usernameChecked = false;
+        _usernameError = '중복확인에 실패했습니다. 네트워크를 확인해주세요';
+      });
+    }
   }
 
   Future<void> _showAlert(String message) {
@@ -106,17 +127,33 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     setState(() => _submitting = true);
-    await LocalAuthService.register(
-      name: _name.text.trim(),
-      username: _username.text.trim(),
-      password: _password.text,
-      phone: _phone.text.trim(),
-      email: _email.text.trim(),
-      birthdate: _birthdate.text,
-      address: _address.text.trim(),
-    );
+    String? error;
+    try {
+      await AccountService.signUp(
+        name: _name.text.trim(),
+        username: _username.text.trim(),
+        password: _password.text,
+        phone: _phone.text.trim(),
+        email: _email.text.trim(),
+        birthdate: _birthdate.text,
+        address: _address.text.trim(),
+      );
+    } on AccountException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요';
+    }
     if (!mounted) return;
+    setState(() => _submitting = false);
+
+    if (error != null) {
+      await _showAlert(error);
+      return;
+    }
     await _showAlert('회원가입이 완료되었습니다!');
+    if (!mounted) return;
+    // 가입하면 Firebase가 자동 로그인 상태가 되므로, 원본 흐름대로 로그인 화면에서 다시 로그인하게 한다.
+    await AccountService.signOut();
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(AppRoutes.login);
   }
@@ -298,6 +335,7 @@ class _SignupScreenState extends State<SignupScreen> {
         _confirmPassword.text.isNotEmpty &&
         _usernameChecked &&
         _usernameAvailable &&
+        _password.text.length >= 6 &&
         _passwordMatch;
     return Column(
       children: [
@@ -322,6 +360,11 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
           ),
         ),
+        if (_usernameError != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _status(false, '', _usernameError!),
+          ),
         if (_usernameChecked)
           Align(
             alignment: Alignment.centerLeft,
@@ -332,10 +375,15 @@ class _SignupScreenState extends State<SignupScreen> {
           label: '비밀번호',
           icon: Icons.lock_outline,
           controller: _password,
-          hint: '비밀번호를 입력하세요',
+          hint: '비밀번호를 입력하세요 (6자 이상)',
           obscure: true,
           onChanged: (_) => setState(() {}),
         ),
+        if (_password.text.isNotEmpty && _password.text.length < 6)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _status(false, '', '비밀번호는 6자 이상이어야 합니다'),
+          ),
         const SizedBox(height: 16),
         KsLabeledField(
           label: '비밀번호 확인',
