@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -63,8 +64,13 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
   bool _cameraReady = false;
   String? _initError;
 
+  List<CameraDescription> _cameras = [];
+  int _cameraIndex = 0;
+  bool _switchingCamera = false;
+
   bool _isVerifying = false;
   _VerifyResult? _result;
+  String? _resultDetail; // 예: "helmet 95.3%" (인식 결과 확인용)
 
   int _attempts = 0;
   bool _isLocked = false;
@@ -180,16 +186,19 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) {
+    _cameras = await availableCameras();
+    if (_cameras.isEmpty) {
       throw Exception('사용 가능한 카메라가 없습니다.');
     }
-    final camera = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.back,
-      orElse: () => cameras.first,
-    );
+    // 얼굴을 화면에 맞춰 인증하는 흐름이라 전면(셀카) 카메라를 먼저 사용한다.
+    final front = _cameras.indexWhere((c) => c.lensDirection == CameraLensDirection.front);
+    _cameraIndex = front >= 0 ? front : 0;
+    await _startCamera();
+  }
+
+  Future<void> _startCamera() async {
     final controller = CameraController(
-      camera,
+      _cameras[_cameraIndex],
       ResolutionPreset.medium,
       enableAudio: false,
     );
@@ -197,9 +206,41 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
     _cameraController = controller;
   }
 
+  Future<void> _switchCamera() async {
+    if (_cameras.length < 2 || _switchingCamera || _isVerifying) return;
+    setState(() => _switchingCamera = true);
+    final old = _cameraController;
+    setState(() => _cameraController = null);
+    await old?.dispose();
+    _cameraIndex = (_cameraIndex + 1) % _cameras.length;
+    try {
+      await _startCamera();
+    } catch (e) {
+      debugPrint('카메라 전환 실패: $e');
+    }
+    if (!mounted) return;
+    setState(() => _switchingCamera = false);
+  }
+
   /// [-1, 1]로 정규화한 [1, 224, 224, 3] 텐서로 변환 (Teachable Machine 표준 전처리)
   List<List<List<List<double>>>> _preprocess(img.Image source) {
-    final resized = img.copyResize(source, width: _inputSize, height: _inputSize);
+    // 1) 촬영 사진의 회전 정보(EXIF)를 반영하고 2) 가운데를 정사각형으로 잘라낸 뒤 3) 224x224로 줄인다.
+    //    (그냥 늘려서 줄이면 비율이 찌그러져 Teachable Machine 학습 때와 달라진다)
+    final oriented = img.bakeOrientation(source);
+    final side = math.min(oriented.width, oriented.height);
+    final cropped = img.copyCrop(
+      oriented,
+      x: (oriented.width - side) ~/ 2,
+      y: (oriented.height - side) ~/ 2,
+      width: side,
+      height: side,
+    );
+    final resized = img.copyResize(
+      cropped,
+      width: _inputSize,
+      height: _inputSize,
+      interpolation: img.Interpolation.average,
+    );
     return [
       List.generate(
         _inputSize,
@@ -246,12 +287,19 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
       final label = _labels.isNotEmpty ? _labels[bestIndex] : '';
       isHelmet = label.toLowerCase().contains('no helmet') == false &&
           label.toLowerCase().contains('helmet');
-    } catch (e) {
+      _resultDetail = '$label ${(scores[bestIndex] * 100).toStringAsFixed(1)}%';
+      final scoreText = [
+        for (var i = 0; i < scores.length; i++)
+          '${i < _labels.length ? _labels[i] : i}=${scores[i].toStringAsFixed(3)}',
+      ].join(', ');
+      debugPrint('헬멧 인식 결과: $scoreText → ${isHelmet ? '착용' : '미착용'}');
+    } catch (e, st) {
+      debugPrint('헬멧 인식 실패: $e\n$st');
       if (!mounted) return;
-      setState(() {
-        _isVerifying = false;
-        _initError = '인식에 실패했습니다: $e';
-      });
+      setState(() => _isVerifying = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('인식에 실패했습니다. 다시 시도해주세요 (${e.runtimeType})')),
+      );
       return;
     }
 
@@ -470,6 +518,20 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
                     )
                   : const SizedBox.shrink(),
             ),
+            if (_cameras.length > 1)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Material(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    onPressed: _isVerifying || _switchingCamera ? null : _switchCamera,
+                    icon: const Icon(Icons.cameraswitch, color: Colors.white),
+                    tooltip: '전면/후면 카메라 전환',
+                  ),
+                ),
+              ),
             // 상태별 오버레이
             if (!_isVerifying && _result == null) ...[
               // 얼굴 가이드 원형 프레임
@@ -536,6 +598,10 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
                         '인증 성공!',
                         style: TextStyle(color: _green400, fontSize: 20, fontWeight: FontWeight.bold),
                       ),
+                      if (_resultDetail != null) ...[
+                        const SizedBox(height: 4),
+                        Text(_resultDetail!, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      ],
                     ],
                   ),
                 ),
@@ -555,6 +621,10 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
                       ),
                       const SizedBox(height: 4),
                       const Text('헬멧을 착용해주세요', style: TextStyle(color: Colors.white, fontSize: 14)),
+                      if (_resultDetail != null) ...[
+                        const SizedBox(height: 4),
+                        Text('인식: $_resultDetail', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      ],
                     ],
                   ),
                 ),
