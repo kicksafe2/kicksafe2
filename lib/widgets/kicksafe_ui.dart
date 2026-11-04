@@ -22,7 +22,13 @@ class KsColors {
   static const gray800 = Color(0xFF1F2937);
   static const green300 = Color(0xFF86EFAC);
   static const green600 = Color(0xFF16A34A);
+  static const red50 = Color(0xFFFEF2F2);
+  static const red200 = Color(0xFFFECACA);
   static const red600 = Color(0xFFDC2626);
+  static const pink50 = Color(0xFFFDF2F8);
+  static const pink700 = Color(0xFFBE185D);
+  static const gray50 = Color(0xFFF9FAFB);
+  static const emerald700 = Color(0xFF047857);
   static const yellow300 = Color(0xFFFCD34D);
   static const inputBackground = Color(0xFFF3F3F5);
 
@@ -42,8 +48,15 @@ class KsHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onBack;
   final Widget? leading;
+  final Gradient gradient;
 
-  const KsHeader({super.key, required this.title, this.onBack, this.leading});
+  const KsHeader({
+    super.key,
+    required this.title,
+    this.onBack,
+    this.leading,
+    this.gradient = KsColors.brandGradient,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +64,7 @@ class KsHeader extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
-        gradient: KsColors.brandGradient,
+        gradient: gradient,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -165,6 +178,7 @@ class KsLabeledField extends StatelessWidget {
   final bool readOnly;
   final VoidCallback? onTap;
   final Widget? suffix;
+  final double fieldHeight;
 
   const KsLabeledField({
     super.key,
@@ -178,6 +192,7 @@ class KsLabeledField extends StatelessWidget {
     this.readOnly = false,
     this.onTap,
     this.suffix,
+    this.fieldHeight = 56,
   });
 
   @override
@@ -204,7 +219,7 @@ class KsLabeledField extends StatelessWidget {
           children: [
             Expanded(
               child: SizedBox(
-                height: 56,
+                height: fieldHeight,
                 child: TextField(
                   controller: controller,
                   obscureText: obscure,
@@ -281,6 +296,56 @@ class _KsGlowShieldState extends State<KsGlowShield>
             ],
           ),
           child: Icon(Icons.shield_outlined, color: Colors.white, size: widget.size),
+        );
+      },
+    );
+  }
+}
+
+/// 은은하게 숨쉬는 색상 글로우 + 아이콘 (경고/성공 화면 공통)
+class KsPulseIcon extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  const KsPulseIcon({super.key, required this.icon, required this.color, this.size = 96});
+
+  @override
+  State<KsPulseIcon> createState() => _KsPulseIconState();
+}
+
+class _KsPulseIconState extends State<KsPulseIcon> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.2 + 0.2 * _c.value),
+                blurRadius: 36 + 16 * _c.value,
+                spreadRadius: 6,
+              ),
+            ],
+          ),
+          child: Icon(widget.icon, color: widget.color, size: widget.size * 0.75),
         );
       },
     );
