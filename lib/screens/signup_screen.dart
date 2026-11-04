@@ -93,11 +93,17 @@ class _SignupScreenState extends State<SignupScreen> {
         _usernameChecked = true;
         _usernameAvailable = available;
       });
+    } on AccountException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _usernameChecked = false;
+        _usernameError = e.message;
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _usernameChecked = false;
-        _usernameError = '중복확인에 실패했습니다. 네트워크를 확인해주세요';
+        _usernameError = '중복확인에 실패했습니다. 잠시 후 다시 시도해주세요';
       });
     }
   }

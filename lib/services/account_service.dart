@@ -35,9 +35,22 @@ class AccountService {
 
   /// 아이디 중복확인. 사용 가능하면 true.
   static Future<bool> isUsernameAvailable(String username) async {
-    final doc = await _db.collection('usernames').doc(_key(username)).get();
-    return !doc.exists;
+    try {
+      final doc = await _db.collection('usernames').doc(_key(username)).get();
+      return !doc.exists;
+    } on FirebaseException catch (e) {
+      throw AccountException(_firestoreMessage(e));
+    }
   }
+
+  /// Firestore 에러 코드를 사용자에게 보여줄 한국어 안내로 바꾼다.
+  static String _firestoreMessage(FirebaseException e) => switch (e.code) {
+        'permission-denied' =>
+          'Firebase 접근 권한이 없습니다. Firestore 규칙(firestore.rules)을 게시했는지 확인해주세요',
+        'unavailable' || 'deadline-exceeded' => '네트워크 연결을 확인해주세요',
+        'not-found' => 'Firestore 데이터베이스가 아직 만들어지지 않았습니다',
+        _ => '서버 요청에 실패했습니다 (${e.code})',
+      };
 
   /// Auth 계정 생성 → Firestore에 프로필/아이디 색인 저장(트랜잭션).
   /// 저장에 실패하면 방금 만든 Auth 계정을 지워 반쪽짜리 가입이 남지 않게 한다.
@@ -82,6 +95,7 @@ class AccountService {
     } catch (e) {
       await user.delete().catchError((_) {});
       if (e is AccountException) rethrow;
+      if (e is FirebaseException) throw AccountException(_firestoreMessage(e));
       throw const AccountException('회원 정보를 저장하지 못했습니다. 잠시 후 다시 시도해주세요');
     }
   }
@@ -123,6 +137,8 @@ class AccountService {
         'network-request-failed' => '네트워크 연결을 확인해주세요',
         _ => '로그인에 실패했습니다 (${e.code})',
       });
+    } on FirebaseException catch (e) {
+      throw AccountException(_firestoreMessage(e));
     }
   }
 
