@@ -16,6 +16,7 @@ dependencies:
   firebase_core: ^2.27.0
   firebase_auth: ^4.16.0
   cloud_firestore: ^4.17.5
+  flutter_naver_map: ^1.4.4
 
 flutter:
   assets:
