@@ -10,8 +10,10 @@ import '../routes/app_routes.dart';
 /// - 최근 주행 목록, 안전 운전 팁
 /// - 하단 네비게이션(계정 / 헬멧 인증 / 기록)
 ///
-/// 주행시간·안전점수·최근 주행 목록은 아직 실제 주행 기록 기능이 없어 원본 디자인의
-/// 데모 값을 그대로 쓰고, username/배지 개수는 SharedPreferences에서 읽어온다.
+/// username/배지 개수는 SharedPreferences에서 읽어온다.
+/// 주행 기록 저장 기능이 아직 없어서 [_recentTrips]는 비어 있고, 신규 가입자는
+/// 주행시간 0, 안전점수 "-", 최근 주행 "아직 주행 기록이 없어요"로 시작한다.
+/// (기록 저장이 생기면 [_recentTrips]만 채워주면 통계와 목록이 같이 바뀐다.)
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -43,6 +45,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _username = '사용자';
   int _badgeCount = 0;
+
+  /// 최근 주행 기록. 아직 저장 기능이 없어 비어 있다.
+  final List<_TripRecord> _recentTrips = const [];
+
+  String get _rideTimeText {
+    final total = _recentTrips.fold<int>(0, (sum, t) => sum + t.minutes);
+    return '${total ~/ 60}';
+  }
+
+  String get _safetyScoreText {
+    if (_recentTrips.isEmpty) return '-';
+    final avg = _recentTrips.fold<int>(0, (sum, t) => sum + t.score) / _recentTrips.length;
+    return '${avg.round()}%';
+  }
 
   @override
   void initState() {
@@ -201,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _StatCard(
             icon: Icons.access_time,
             iconColor: _purple600,
-            value: '24',
+            value: _rideTimeText,
             label: '주행시간',
             onTap: null,
           ),
@@ -211,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _StatCard(
             icon: Icons.insights,
             iconColor: _indigo600,
-            value: '95%',
+            value: _safetyScoreText,
             label: '안전점수',
             onTap: () => _goTo(AppRoutes.history),
           ),
@@ -268,23 +284,43 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _TripTile(
-            color: _purple600,
-            background: _purple50,
-            route: '서울 → 인천',
-            detail: '2시간 15분 · 45.2km',
-            score: '98점',
-            scoreColor: _purple600,
-          ),
-          const SizedBox(height: 10),
-          _TripTile(
-            color: _indigo600,
-            background: _gray50,
-            route: '분당 → 강남',
-            detail: '45분 · 18.5km',
-            score: '92점',
-            scoreColor: _indigo600,
-          ),
+          if (_recentTrips.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+              decoration: BoxDecoration(
+                color: _gray50,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.route_outlined, color: _gray400, size: 36),
+                  SizedBox(height: 10),
+                  Text(
+                    '아직 주행 기록이 없어요',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _gray800),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '아래 재생 버튼으로 헬멧 인증 후 첫 주행을 시작해보세요',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: _gray500, height: 1.4),
+                  ),
+                ],
+              ),
+            )
+          else
+            for (var i = 0; i < _recentTrips.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              _TripTile(
+                color: i.isEven ? _purple600 : _indigo600,
+                background: i.isEven ? _purple50 : _gray50,
+                route: _recentTrips[i].route,
+                detail: _recentTrips[i].detail,
+                score: '${_recentTrips[i].score}점',
+                scoreColor: i.isEven ? _purple600 : _indigo600,
+              ),
+            ],
         ],
       ),
     );
@@ -381,6 +417,21 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+/// 주행 기록 한 건 (저장 기능이 생기면 Firestore 등에서 채운다)
+class _TripRecord {
+  final String route;
+  final String detail;
+  final int minutes;
+  final int score;
+
+  const _TripRecord({
+    required this.route,
+    required this.detail,
+    required this.minutes,
+    required this.score,
+  });
 }
 
 class _StatCard extends StatelessWidget {
