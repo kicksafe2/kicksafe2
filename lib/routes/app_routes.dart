@@ -41,7 +41,14 @@ class AppRoutes {
         helmetVerification: (_) => const HelmetVerificationScreen(),
         map: (_) => const MapScreen(),
         drivingBlocked: (_) => const DrivingBlockedScreen(),
-        scoreResult: (_) => const ScoreResultScreen(),
+        scoreResult: (context) {
+          // 지도 화면이 arguments: {'score': 점수} 로 넘겨준 값을 점수 결과 화면에 전달
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map && args['score'] is int) {
+            return ScoreResultScreen(score: args['score'] as int);
+          }
+          return const ScoreResultScreen();
+        },
         rewardBanner: (_) => const RewardBannerScreen(),
         history: (_) => const HistoryScreen(),
         account: (_) => const AccountScreen(),
