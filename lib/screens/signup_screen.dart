@@ -146,8 +146,9 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     } on AccountException catch (e) {
       error = e.message;
-    } catch (_) {
-      error = '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요';
+    } catch (e, st) {
+      debugPrint('회원가입 예상치 못한 에러: $e\n$st');
+      error = '회원가입에 실패했습니다 (${e.runtimeType})';
     }
     if (!mounted) return;
     setState(() => _submitting = false);

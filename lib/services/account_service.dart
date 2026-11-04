@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import 'onboarding_store.dart';
 
@@ -93,10 +94,11 @@ class AccountService {
       await user.updateDisplayName(name);
       await OnboardingStore.saveDisplayName(name);
     } catch (e) {
+      debugPrint('회원가입(프로필 저장) 에러: $e');
       await user.delete().catchError((_) {});
       if (e is AccountException) rethrow;
       if (e is FirebaseException) throw AccountException(_firestoreMessage(e));
-      throw const AccountException('회원 정보를 저장하지 못했습니다. 잠시 후 다시 시도해주세요');
+      throw AccountException('회원 정보를 저장하지 못했습니다 (${e.runtimeType})');
     }
   }
 
@@ -112,6 +114,9 @@ class AccountService {
         'operation-not-allowed' => 'Firebase에서 이메일/비밀번호 로그인이 꺼져 있습니다',
         _ => '회원가입에 실패했습니다 (${e.code})',
       });
+    } catch (e, st) {
+      debugPrint('회원가입(Auth 생성) 예상치 못한 에러: $e\n$st');
+      throw AccountException('회원가입에 실패했습니다 (${e.runtimeType})');
     }
   }
 
