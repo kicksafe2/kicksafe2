@@ -284,10 +284,19 @@ class _SignupScreenState extends State<SignupScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(ok ? Icons.check_circle_outline : Icons.cancel_outlined, size: 16, color: color),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(ok ? Icons.check_circle_outline : Icons.cancel_outlined, size: 16, color: color),
+          ),
           const SizedBox(width: 8),
-          Text(ok ? okText : badText, style: TextStyle(color: color, fontSize: 14)),
+          Expanded(
+            child: Text(
+              ok ? okText : badText,
+              style: TextStyle(color: color, fontSize: 14, height: 1.35),
+            ),
+          ),
         ],
       ),
     );
