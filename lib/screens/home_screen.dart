@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'ble_service.dart';
 
 /// TODO: components/HomeScreen.tsx 내용 보고 실제 UI로 채우기 (Figma 참고)
 class HomeScreen extends StatelessWidget {

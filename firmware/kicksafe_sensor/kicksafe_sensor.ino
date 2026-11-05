@@ -47,6 +47,8 @@ void setup() {
   while (!Serial) delay(10);
 
   Wire.begin(SDA_PIN, SCL_PIN);
+  Wire.setClock(100000);     // 400kHz보다 100kHz가 클론 칩에 더 안정적
+  Wire.setTimeOut(50);       // 50ms 이상 응답 없으면 타임아웃 (무한대기 방지)
   mpuWake();
 
   BLEDevice::init("KickSafe-Sensor");
@@ -70,8 +72,22 @@ void setup() {
 void loop() {
   Wire.beginTransmission(MPU6050_ADDR);
   Wire.write(ACCEL_XOUT_H);
-  Wire.endTransmission(false);
-  Wire.requestFrom(MPU6050_ADDR, 14, true);
+  uint8_t err = Wire.endTransmission(false);   // repeated start 유지
+
+  if (err != 0) {
+    Serial.printf("I2C 쓰기 실패, err=%d, 재초기화\n", err);
+    Wire.begin(SDA_PIN, SCL_PIN);
+    delay(10);
+    return;
+  }
+
+  uint8_t n = Wire.requestFrom(MPU6050_ADDR, 14, true);
+  if (n < 14) {
+    Serial.printf("I2C 읽기 실패, 받은 바이트=%d, 재초기화\n", n);
+    Wire.begin(SDA_PIN, SCL_PIN);
+    delay(10);
+    return;
+  }
 
   int16_t rawAx = Wire.read() << 8 | Wire.read();
   int16_t rawAy = Wire.read() << 8 | Wire.read();
@@ -90,12 +106,13 @@ void loop() {
   float gz = rawGz / GYRO_SENS;
 
   if (deviceConnected) {
-    // "ax,ay,az,gx,gy,gz" CSV 문자열로 전송 (ble_sensor_service.dart와 형식 맞춤)
     char buf[80];
     snprintf(buf, sizeof(buf), "%.3f,%.3f,%.3f,%.2f,%.2f,%.2f", ax, ay, az, gx, gy, gz);
     pCharacteristic->setValue((uint8_t *)buf, strlen(buf));
     pCharacteristic->notify();
+    Serial.printf("[%lu] 전송: %s\n", millis(), buf);   // 생존 확인용, 평소엔 지워도 됨
   }
 
   delay(300);
 }
+
