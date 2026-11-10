@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../routes/app_routes.dart';
+import '../services/account_service.dart';
 
 /// 내 계정 화면.
 /// TODO(Firestore): 지금은 더미 데이터. users 컬렉션에서 닉네임/보유 배지 수 등
@@ -9,7 +10,17 @@ import '../routes/app_routes.dart';
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
-  static const _userName = '사용자';
+  /// 가입할 때 저장한 이름(Firebase Auth displayName). 없으면 '사용자'.
+  String get _userName {
+    final name = AccountService.currentUser?.displayName;
+    return (name == null || name.trim().isEmpty) ? '사용자' : name;
+  }
+
+  /// 프로필 카드의 보조 문구. 로그인한 이메일, 없으면 기본 문구.
+  String get _userSubtitle =>
+      AccountService.currentUser?.email ?? 'kicksafe 회원';
+
+  // TODO(Firestore): 보유 배지 수 / 받은 혜택은 아직 저장되는 곳이 없어 빈 값 유지.
   static const _badgeCount = 0;
   static const _hasBenefits = false;
 
@@ -24,7 +35,7 @@ class AccountScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                _ProfileCard(userName: _userName),
+                _ProfileCard(userName: _userName, subtitle: _userSubtitle),
                 const SizedBox(height: 16),
                 _SectionCard(
                   icon: Icons.emoji_events,
@@ -142,9 +153,10 @@ class _Header extends StatelessWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.userName});
+  const _ProfileCard({required this.userName, required this.subtitle});
 
   final String userName;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -185,9 +197,9 @@ class _ProfileCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  'kicksafe 회원',
-                  style: TextStyle(
+                Text(
+                  subtitle,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.mutedForeground,
                   ),
