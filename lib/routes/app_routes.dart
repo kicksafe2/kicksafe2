@@ -50,7 +50,7 @@ class AppRoutes {
           return const ScoreResultScreen();
         },
         rewardBanner: (_) => const RewardBannerScreen(),
-        history: (_) => HistoryScreen(),
+        history: (_) => const HistoryScreen(),
         account: (_) => const AccountScreen(),
         badgeMap: (_) => const BadgeMapScreen(),
       };

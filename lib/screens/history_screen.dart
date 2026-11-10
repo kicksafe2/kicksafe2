@@ -3,56 +3,13 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
 /// 지난 주행 기록 목록 화면.
-/// TODO(Firestore): 지금은 더미 데이터. events 컬렉션에서 사용자의
-/// 세션별 기록(출발지/도착지/점수/소요시간/거리/날짜)을 가져와 채우면 됨.
+/// 주행 기록이 저장되기 전까지는 빈 목록으로 시작한다(신규 가입자는 기록 없음).
+/// TODO(Firestore): 로그인한 사용자의 주행 기록(출발지/도착지/점수/소요시간/거리/날짜)을
+/// 가져와서 [rides]에 넘겨주면 목록과 상단 통계가 함께 채워진다.
 class HistoryScreen extends StatelessWidget {
-   HistoryScreen({super.key, List<RideHistoryItem>? rides})
-      : rides = rides ?? _dummyRides;
+  const HistoryScreen({super.key, this.rides = const []});
 
   final List<RideHistoryItem> rides;
-
-  static final List<RideHistoryItem> _dummyRides = [
-    RideHistoryItem(
-      from: '서울 강남',
-      to: '인천 송도',
-      score: 98,
-      duration: '2시간 15분',
-      distanceKm: 45.2,
-      date: '2026-05-18',
-    ),
-    RideHistoryItem(
-      from: '분당',
-      to: '강남',
-      score: 92,
-      duration: '45분',
-      distanceKm: 18.5,
-      date: '2026-05-17',
-    ),
-    RideHistoryItem(
-      from: '수원',
-      to: '서울',
-      score: 95,
-      duration: '1시간 20분',
-      distanceKm: 35.8,
-      date: '2026-05-16',
-    ),
-    RideHistoryItem(
-      from: '서울 종로',
-      to: '성남',
-      score: 88,
-      duration: '55분',
-      distanceKm: 22.3,
-      date: '2026-05-15',
-    ),
-    RideHistoryItem(
-      from: '일산',
-      to: '서울 강북',
-      score: 94,
-      duration: '1시간 10분',
-      distanceKm: 28.7,
-      date: '2026-05-14',
-    ),
-  ];
 
   int get _totalRides => rides.length;
 
@@ -73,12 +30,14 @@ class HistoryScreen extends StatelessWidget {
             safeRideCount: _safeRideCount,
           ),
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: rides.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => _RideCard(ride: rides[index]),
-            ),
+            child: rides.isEmpty
+                ? const _EmptyHistory()
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: rides.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) => _RideCard(ride: rides[index]),
+                  ),
           ),
         ],
       ),
@@ -142,7 +101,7 @@ class _Header extends StatelessWidget {
               ),
               Expanded(
                 child: _HeaderStat(
-                  value: averageScore.round().toString(),
+                  value: totalRides == 0 ? '-' : averageScore.round().toString(),
                   label: '평균 점수',
                 ),
               ),
@@ -314,6 +273,40 @@ class _LocationRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EmptyHistory extends StatelessWidget {
+  const _EmptyHistory();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.route_outlined, size: 48, color: AppColors.mutedForeground),
+            SizedBox(height: 12),
+            Text(
+              '아직 주행 기록이 없어요',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.foreground,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              '주행을 마치면 이곳에 기록이 쌓여요',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: AppColors.mutedForeground),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
