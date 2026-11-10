@@ -3,12 +3,13 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
 /// 배지 달성 지도 화면.
-/// TODO(Firestore): 지금은 더미 데이터. users 컬렉션에서 보유 배지 수를 받아와서
-/// _currentBadgeCount 채우면 됨.
+/// TODO(Firestore): users 컬렉션에서 보유 배지 수를 받아와서 _currentBadgeCount 채우면 됨.
 class BadgeMapScreen extends StatelessWidget {
   const BadgeMapScreen({super.key});
 
-  static const _currentBadgeCount = 5;
+  // TODO(Firestore): 보유 배지 수를 저장/조회하는 로직 연결 전까지 신규 가입자 기준 0.
+  // (계정 화면의 '내 배지'와 같은 값이어야 함)
+  static const _currentBadgeCount = 0;
 
   static const List<_Milestone> _milestones = [
     _Milestone(badges: 5, benefit: '10% 할인', detail: '다음 5회 주행 시 10% 할인 적용'),
