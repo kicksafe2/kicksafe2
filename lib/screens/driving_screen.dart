@@ -11,6 +11,7 @@ import '../config/app_config.dart';
 import '../routes/app_routes.dart';
 import '../scoring/scoring.dart';
 import '../services/ble_sensor_service.dart' show SensorReading;
+import '../services/keep_awake.dart';
 import '../services/naver_geo_service.dart' show RouteGuide;
 import '../services/ride_service.dart';
 import '../services/route_tracker.dart';
@@ -114,6 +115,7 @@ class _DrivingScreenState extends State<DrivingScreen> {
       plannedDistanceMeters: widget.args.distanceMeters,
       estimatedMinutes: widget.args.estimatedMinutes,
     );
+    unawaited(KeepAwake.on()); // 주행 중 화면 꺼짐 방지
     _startGps();
     unawaited(_startRecorder());
     _sensor.status.addListener(_onSensorStatus);
@@ -145,6 +147,7 @@ class _DrivingScreenState extends State<DrivingScreen> {
     _sensor.status.removeListener(_onSensorStatus);
     _sensor.dispose();
     unawaited(_recorder?.close());
+    unawaited(KeepAwake.off());
     super.dispose();
   }
 
@@ -198,6 +201,15 @@ class _DrivingScreenState extends State<DrivingScreen> {
               accuracy: LocationAccuracy.bestForNavigation,
               distanceFilter: 3, // 3m 이상 움직였을 때만 갱신
               intervalDuration: const Duration(seconds: 1),
+              // 화면이 꺼지거나 다른 앱으로 가도 위치 수신과 센서 점수 계산이 끊기지 않도록
+              // 포그라운드 서비스(상단 알림)로 실행한다. 스트림을 닫으면 서비스도 함께 멈춘다.
+              foregroundNotificationConfig: const ForegroundNotificationConfig(
+                notificationTitle: 'KickSafe 주행 중',
+                notificationText: '경로 안내와 안전 점수 계산이 진행 중이에요',
+                notificationChannelName: '주행 중 알림',
+                enableWakeLock: true,
+                setOngoing: true,
+              ),
             )
           : const LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 3);
 
@@ -364,6 +376,7 @@ class _DrivingScreenState extends State<DrivingScreen> {
 
     _fakeSensorTimer?.cancel();
     await _sensor.stop(); // 센서 연결 해제
+    unawaited(KeepAwake.off());
 
     // 아직 닫히지 않은 마지막 윈도우까지 판정
     final last = _scorer.flush();

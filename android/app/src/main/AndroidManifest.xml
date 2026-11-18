@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 주행 중 화면이 꺼져도 위치(GPS)를 계속 받는 포그라운드 서비스 (geolocator 가 서비스를 선언함) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- 포그라운드 서비스가 CPU 를 깨워 두는 옵션(enableWakeLock)에 필요. 없으면 서비스 시작 시 SecurityException -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Android 13+ 에서 "주행 중" 알림을 보여주려면 필요. 거부해도 서비스는 동작한다. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="flutter_application_1"

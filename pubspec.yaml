@@ -22,6 +22,7 @@ dependencies:
   flutter_blue_plus: ^1.31.0   # 센서(ESP32) BLE 수신
   permission_handler: ^11.0.0  # 블루투스 런타임 권한
   path_provider: ^2.1.0        # 센서 기록(CSV) 저장 폴더
+  wakelock_plus: ^1.7.0
 
 # firebase_auth 4.16.0 은 platform_interface 7.0.x 와 짝이다. 더 새 7.3.x 가 같이 깔리면
 # 회원가입/로그인 결과를 읽다가 "PigeonUserDetails" TypeError 가 나므로 7.0.9 로 고정한다.
