@@ -34,6 +34,9 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+
+  # 날씨 API (기상청 API허브)
+  http: ^1.2.2
   # BLE 통신                  # 여기서부터 추가
   flutter_blue_plus: ^1.31.0
   permission_handler: ^11.0.0

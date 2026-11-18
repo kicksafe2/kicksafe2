@@ -3,7 +3,11 @@
 /// 사용 예:
 /// ```dart
 /// final detector = EventDetector();
-/// final calc = ScoreCalculator(context: RideContext(isNight: true));
+/// final weather = WeatherService(); // lib/services/weather_service.dart
+/// final cond = await weather.currentCondition(lat: lat, lon: lon); // 위치 모르면 인자 생략(서울)
+/// final calc = ScoreCalculator(
+///   context: RideContext(isNight: isNight, weather: cond),
+/// );
 ///
 /// bleSensorService.subscribe(device, (reading) {
 ///   for (final e in detector.addSample(reading)) {
