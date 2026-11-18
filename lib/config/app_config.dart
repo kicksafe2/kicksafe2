@@ -18,6 +18,11 @@ class AppConfig {
   /// 위치: Android/data/com.kicksafe.app/files/sensor_logs/<세션ID>_imu.csv, _events.csv
   static const saveRawSensorToFile = true;
 
+  /// 디버그 빌드에서 주행 화면에 'GPS 시뮬레이션', '가짜 충돌/급정거/급회전' 버튼을 보일지.
+  /// 실제 센서로 주행 테스트를 할 때는 false 로 둔다(실수로 눌러 가짜 값이 점수에 섞이는 것을 막음).
+  /// 릴리즈 빌드에서는 이 값과 상관없이 항상 숨겨진다. 센서 없이 점수 흐름만 확인하려면 true.
+  static const showDebugTools = false;
+
   /// 같은 원시값을 Firestore(imuLogs/{세션ID}/logs)에도 1초 묶음으로 저장한다.
   /// 10분 주행에 문서 약 600개. 쓰기 한도(하루 2만 건)가 걱정되면 false.
   static const saveRawSensorToFirestore = true;

@@ -147,6 +147,13 @@ class SensorLink {
   Future<void> _connect(BluetoothDevice device) async {
     if (status.value != SensorStatus.reconnecting) _set(SensorStatus.connecting);
     await device.connect(timeout: connectTimeout);
+    // 센서가 초당 약 50번 보내므로 연결 간격을 짧게(안드로이드 기본은 30~50ms) 요청한다.
+    // 실패해도(미지원 기기 등) 연결과 점수 계산에는 영향이 없다.
+    try {
+      await device.requestConnectionPriority(connectionPriorityRequest: ConnectionPriority.high);
+    } catch (e) {
+      debugPrint('연결 우선순위 요청 실패(무시): $e');
+    }
     await _service.subscribe(device, (r) => _onReading?.call(r));
     _set(SensorStatus.connected);
   }

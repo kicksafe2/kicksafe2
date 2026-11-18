@@ -98,11 +98,20 @@ class _DrivingScreenState extends State<DrivingScreen> {
   String? _lastEventText; // 방금 감점된 이벤트 표시(몇 초 뒤 사라짐)
   Timer? _eventTextTimer;
   Timer? _fakeSensorTimer; // 디버그 전용: 가짜 센서 값
+  // 실제 센서 수신 속도(회/초)와 마지막 수신 시각 — 주행 중 끊김을 바로 알아보기 위함
+  Timer? _rateTimer;
+  int _rxTotal = 0;
+  int _rxPrev = 0;
+  double _rxPerSecond = 0;
+  DateTime? _lastRxAt;
   bool _usedFakeSensor = false;
 
   Timer? _simTimer;
   double _simMeters = 0;
   bool get _simulating => _simTimer != null;
+
+  /// 디버그 빌드이면서 AppConfig.showDebugTools 가 켜졌을 때만 테스트용 버튼을 보인다.
+  bool get _showDebugTools => kDebugMode && AppConfig.showDebugTools;
 
   @override
   void initState() {
@@ -120,6 +129,13 @@ class _DrivingScreenState extends State<DrivingScreen> {
     unawaited(_startRecorder());
     _sensor.status.addListener(_onSensorStatus);
     unawaited(_sensor.start(_onSensorReading));
+    _rateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _rxPerSecond = (_rxTotal - _rxPrev).toDouble();
+        _rxPrev = _rxTotal;
+      });
+    });
   }
 
   /// 원시 센서값 기록을 연다. 실패해도 주행에는 영향이 없다.
@@ -144,6 +160,7 @@ class _DrivingScreenState extends State<DrivingScreen> {
     _simTimer?.cancel();
     _fakeSensorTimer?.cancel();
     _eventTextTimer?.cancel();
+    _rateTimer?.cancel();
     _sensor.status.removeListener(_onSensorStatus);
     _sensor.dispose();
     unawaited(_recorder?.close());
@@ -159,6 +176,10 @@ class _DrivingScreenState extends State<DrivingScreen> {
 
   void _onSensorReading(SensorReading r, {bool fake = false}) {
     if (!mounted || _finishing) return;
+    if (!fake) {
+      _rxTotal++;
+      _lastRxAt = DateTime.now();
+    }
     _recorder?.addReading(r, speedKmh: _lastSpeedKmh, fake: fake);
     final events = _scorer.addReading(r);
     if (events.isNotEmpty) _handleScoredEvents(events);
@@ -640,7 +661,7 @@ class _DrivingScreenState extends State<DrivingScreen> {
           ),
           const SizedBox(height: 12),
           _buildSensorRow(),
-          if (kDebugMode) ...[
+          if (_showDebugTools) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -664,7 +685,7 @@ class _DrivingScreenState extends State<DrivingScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              if (kDebugMode) ...[
+              if (_showDebugTools) ...[
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _finishing ? null : _toggleSimulation,
@@ -692,6 +713,25 @@ class _DrivingScreenState extends State<DrivingScreen> {
         ],
       ),
     );
+  }
+
+  /// 연결은 됐는데 3초 넘게 값이 안 들어오는 상태(센서 전원·BLE 끊김 의심)
+  bool _sensorStalled(SensorStatus st) {
+    final at = _lastRxAt;
+    if (!st.isOk || at == null) return false;
+    return DateTime.now().difference(at) > const Duration(seconds: 3);
+  }
+
+  String _sensorText(SensorStatus st, bool hasData) {
+    if (st.isOk) {
+      final at = _lastRxAt;
+      if (at == null) return '센서 연결됨 · 값 대기 중';
+      if (_sensorStalled(st)) {
+        return '센서 값이 ${DateTime.now().difference(at).inSeconds}초째 안 들어와요';
+      }
+      return '센서 연결됨 · ${_rxPerSecond.round()}회/초';
+    }
+    return hasData ? '${st.label} (값 $_rxTotal개 수신)' : st.label;
   }
 
   /// 센서 연결 상태 + 현재 점수 + 방금 감점된 이벤트.
@@ -729,8 +769,12 @@ class _DrivingScreenState extends State<DrivingScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  hasData && !st.isOk ? '${st.label} (값 ${_scorer.readingCount}개 수신)' : st.label,
-                  style: const TextStyle(fontSize: 13, color: KsColors.gray700),
+                  _sensorText(st, hasData),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _sensorStalled(st) ? KsColors.red600 : KsColors.gray700,
+                    fontWeight: _sensorStalled(st) ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ),
               Text(
