@@ -8,7 +8,9 @@ import 'package:geolocator/geolocator.dart';
 import '../config/app_config.dart';
 import '../routes/app_routes.dart';
 import '../services/naver_geo_service.dart';
+import '../utils/route_text.dart';
 import '../widgets/kicksafe_ui.dart';
+import 'driving_screen.dart';
 
 /// Figma 디자인(MapScreen.tsx): 주행 경로 설정 화면.
 ///
@@ -45,9 +47,13 @@ class _MapScreenState extends State<MapScreen> {
 
   bool _locating = true;
   bool _searching = false;
-  bool _driving = false;
   int? _estimatedMinutes;
   String? _error;
+
+  // 경로 안내(단계별). 경로 탐색에 성공했을 때만 채워진다.
+  DrivingRoute? _route; // 주행 화면으로 넘길 경로(좌표 + 안내)
+  List<RouteGuide> _guides = const [];
+  bool _guidesExpanded = false;
 
   @override
   void initState() {
@@ -179,6 +185,9 @@ class _MapScreenState extends State<MapScreen> {
       setState(() {
         _estimatedMinutes = null;
         _error = null;
+        _route = null;
+        _guides = const [];
+        _guidesExpanded = false;
       });
     }
   }
@@ -240,6 +249,9 @@ class _MapScreenState extends State<MapScreen> {
       }
       setState(() {
         _estimatedMinutes = minutes;
+        _route = route;
+        _guides = route.guides;
+        _guidesExpanded = false;
         _searching = false;
       });
     } on GeoException catch (e) {
@@ -288,16 +300,23 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---------------- 주행 시작 ----------------
 
-  /// TODO: 실제 주행(센서 연동) 기능이 생기기 전까지는 원본 디자인처럼
-  /// 잠시 뒤 점수 결과 화면으로 넘어가는 데모 동작이다. 점수는 임의 값(80~100).
+  /// 탐색한 경로(좌표 + 안내)를 주행 화면으로 넘긴다.
+  /// 주행 화면이 GPS를 따라가며 안내를 실시간으로 갱신한다.
   Future<void> _startDriving() async {
-    if (_driving) return;
-    setState(() => _driving = true);
-    await Future<void>.delayed(const Duration(seconds: 3));
-    if (!mounted) return;
-    final score = 80 + Random().nextInt(21);
-    setState(() => _driving = false);
-    await Navigator.of(context).pushNamed(AppRoutes.scoreResult, arguments: {'score': score});
+    final route = _route;
+    final minutes = _estimatedMinutes;
+    if (route == null || minutes == null || route.path.length < 2) return;
+    await Navigator.of(context).pushNamed(
+      AppRoutes.driving,
+      arguments: DrivingScreenArgs(
+        path: route.path,
+        guides: route.guides,
+        originName: _currentController.text.trim(),
+        destinationName: _destController.text.trim(),
+        distanceMeters: route.distanceMeters,
+        estimatedMinutes: minutes,
+      ),
+    );
   }
 
   void _goHome() {
@@ -448,6 +467,10 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
               ),
+              if (_guides.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _buildGuideCard(),
+              ],
             ],
             const SizedBox(height: 14),
             if (minutes == null)
@@ -466,50 +489,137 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _buildStartButton() {
-    return Opacity(
-      opacity: _driving ? 0.6 : 1,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [KsColors.green600, KsColors.emerald700]),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: KsColors.green600.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
+  // ---------------- 경로 안내 ----------------
+
+  /// 접으면 "다음 안내" 한 줄, 펼치면 전체 단계 목록.
+  Widget _buildGuideCard() {
+    // 네이버 guide 에는 출발 항목이 없어서 첫 항목이 곧 첫 번째 안내(다음 회전)다.
+    final next = _guides.first;
+
+    Widget step(RouteGuide g, {required bool highlight, required bool showDistance}) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(guideIcon(g.instruction),
+                size: 20, color: highlight ? KsColors.purple600 : KsColors.gray500),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                g.instruction,
+                style: TextStyle(
+                  fontSize: highlight ? 15 : 13,
+                  fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
+                  color: KsColors.gray800,
+                  height: 1.3,
+                ),
+              ),
             ),
+            if (showDistance && g.distanceFromPrevMeters > 0)
+              Text(
+                formatDistance(g.distanceFromPrevMeters),
+                style: const TextStyle(fontSize: 12, color: KsColors.gray500),
+              ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: _driving ? null : _startDriving,
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_driving)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                    )
-                  else
-                    const Icon(Icons.navigation, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    _driving ? '주행 중...' : '주행 시작',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: KsColors.gray50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KsColors.gray200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _guidesExpanded ? '경로 안내 ${_guides.length}단계' : '다음 안내',
+                  style: const TextStyle(fontSize: 12, color: KsColors.gray500),
+                ),
+              ),
+              InkWell(
+                onTap: () => setState(() => _guidesExpanded = !_guidesExpanded),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _guidesExpanded ? '접기' : '전체 보기',
+                        style: const TextStyle(fontSize: 12, color: KsColors.purple600),
+                      ),
+                      Icon(
+                        _guidesExpanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: KsColors.purple600,
+                      ),
+                    ],
                   ),
+                ),
+              ),
+            ],
+          ),
+          if (!_guidesExpanded)
+            step(next, highlight: true, showDistance: true)
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 170),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(right: 6),
+                children: [
+                  for (var i = 0; i < _guides.length; i++)
+                    step(_guides[i], highlight: i == 0, showDistance: true),
                 ],
               ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStartButton() {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [KsColors.green600, KsColors.emerald700]),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: KsColors.green600.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _startDriving,
+          child: const Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.navigation, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  '주행 시작',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

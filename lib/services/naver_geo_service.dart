@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_naver_map/flutter_naver_map.dart' show NLatLng;
 import 'package:http/http.dart' as http;
 
 import '../config/secrets.dart';
+import '../utils/geo_math.dart';
 
 /// 화면에 그대로 보여줄 수 있는 한국어 메시지를 담은 예외.
 class GeoException implements Exception {
@@ -12,6 +14,24 @@ class GeoException implements Exception {
   const GeoException(this.message);
   @override
   String toString() => message;
+}
+
+/// 경로 안내 한 단계. 예) "'테헤란로' 방면으로 우회전"
+class RouteGuide {
+  /// 경로 좌표([DrivingRoute.path]) 중 이 안내가 일어나는 지점의 인덱스
+  final int pointIndex;
+
+  /// 네이버가 내려주는 안내 문구
+  final String instruction;
+
+  /// 직전 안내 지점(첫 안내는 출발지)에서 이 지점까지 경로를 따라 간 거리(m).
+  final double distanceFromPrevMeters;
+
+  const RouteGuide({
+    required this.pointIndex,
+    required this.instruction,
+    required this.distanceFromPrevMeters,
+  });
 }
 
 /// 네이버 Directions 5 경로 결과.
@@ -22,7 +42,14 @@ class DrivingRoute {
   /// 경로를 따라 그릴 좌표들
   final List<NLatLng> path;
 
-  const DrivingRoute({required this.distanceMeters, required this.path});
+  /// 단계별 안내(첫 회전 → … → 목적지). 출발 항목은 없다. 응답에 없으면 빈 목록.
+  final List<RouteGuide> guides;
+
+  const DrivingRoute({
+    required this.distanceMeters,
+    required this.path,
+    this.guides = const [],
+  });
 }
 
 /// 네이버 클라우드 Maps REST API(Geocoding / Reverse Geocoding / Directions 5) 호출.
@@ -146,6 +173,40 @@ class NaverGeoService {
       for (final p in (route['path'] as List))
         NLatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()), // path는 [경도, 위도] 순서
     ];
-    return DrivingRoute(distanceMeters: distance, path: path);
+    return DrivingRoute(
+      distanceMeters: distance,
+      path: path,
+      guides: _parseGuides(route['guide'], path),
+    );
   }
+
+  /// 응답의 guide 배열 → [RouteGuide] 목록.
+  /// 안내 사이 거리는 응답 값 대신 경로 좌표로 직접 계산한다(필드 의미에 기대지 않기 위해).
+  static List<RouteGuide> _parseGuides(Object? raw, List<NLatLng> path) {
+    if (raw is! List || path.isEmpty) return const [];
+
+    // cumulative[i] = 경로 시작부터 i번째 좌표까지 누적 거리(m)
+    final cumulative = List<double>.filled(path.length, 0);
+    for (var i = 1; i < path.length; i++) {
+      cumulative[i] = cumulative[i - 1] + haversineMeters(path[i - 1], path[i]);
+    }
+
+    final guides = <RouteGuide>[];
+    double prev = 0;
+    for (final g in raw) {
+      if (g is! Map) continue;
+      final instruction = (g['instructions'] as String?)?.trim() ?? '';
+      final index = (g['pointIndex'] as num?)?.toInt();
+      if (instruction.isEmpty || index == null) continue;
+      final at = cumulative[index.clamp(0, path.length - 1)];
+      guides.add(RouteGuide(
+        pointIndex: index,
+        instruction: instruction,
+        distanceFromPrevMeters: max(0, at - prev),
+      ));
+      prev = at;
+    }
+    return guides;
+  }
+
 }

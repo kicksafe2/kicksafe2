@@ -14,6 +14,8 @@ class ScoreResultScreen extends StatelessWidget {
     this.avgSpeedKmh = 65,
     this.hardBrakeCount = 0,
     this.hardAccelCount = 1,
+    this.penaltyLines = const [],
+    this.notice,
   });
 
   final int score;
@@ -21,6 +23,12 @@ class ScoreResultScreen extends StatelessWidget {
   final int avgSpeedKmh;
   final int hardBrakeCount;
   final int hardAccelCount;
+
+  /// 감점 내역(예: '넘어짐/충돌 1회  -30점'). 비어 있으면 표시하지 않는다.
+  final List<String> penaltyLines;
+
+  /// 점수 아래 안내 문구(예: 센서가 연결되지 않았을 때)
+  final String? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +104,10 @@ class ScoreResultScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (penaltyLines.isNotEmpty || notice != null) ...[
+                      const SizedBox(height: 16),
+                      _PenaltyBox(lines: penaltyLines, notice: notice),
+                    ],
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
@@ -147,6 +159,56 @@ class ScoreResultScreen extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PenaltyBox extends StatelessWidget {
+  const _PenaltyBox({required this.lines, required this.notice});
+
+  final List<String> lines;
+  final String? notice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.muted,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (lines.isNotEmpty) ...[
+            const Text(
+              '감점 내역',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.foreground,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final l in lines)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  l,
+                  style: const TextStyle(fontSize: 13, color: AppColors.mutedForeground),
+                ),
+              ),
+          ],
+          if (notice != null) ...[
+            if (lines.isNotEmpty) const SizedBox(height: 8),
+            Text(
+              notice!,
+              style: const TextStyle(fontSize: 12, color: AppColors.mutedForeground, height: 1.4),
+            ),
+          ],
+        ],
       ),
     );
   }

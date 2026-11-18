@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../routes/app_routes.dart';
+import '../services/ride_service.dart';
 
 /// Figma 디자인(Kicksafe Android UI_UX / HomeScreen.tsx)을 그대로 옮긴 홈 화면.
 ///
@@ -46,17 +49,21 @@ class _HomeScreenState extends State<HomeScreen> {
   String _username = '사용자';
   int _badgeCount = 0;
 
-  /// 최근 주행 기록. 아직 저장 기능이 없어 비어 있다.
-  final List<_TripRecord> _recentTrips = const [];
+  /// 내 주행 기록 전체(최신순). Firestore sessions 에서 실시간으로 받는다.
+  List<_TripRecord> _allTrips = const [];
+  StreamSubscription<List<RideRecord>>? _ridesSub;
+
+  /// 홈에는 최근 3건만 보여준다. (통계는 전체 기록 기준)
+  List<_TripRecord> get _recentTrips => _allTrips.take(3).toList();
 
   String get _rideTimeText {
-    final total = _recentTrips.fold<int>(0, (sum, t) => sum + t.minutes);
-    return '${total ~/ 60}';
+    final total = _allTrips.fold<int>(0, (sum, t) => sum + t.minutes);
+    return total < 60 ? '$total분' : '${(total / 60).toStringAsFixed(1)}시간';
   }
 
   String get _safetyScoreText {
-    if (_recentTrips.isEmpty) return '-';
-    final avg = _recentTrips.fold<int>(0, (sum, t) => sum + t.score) / _recentTrips.length;
+    if (_allTrips.isEmpty) return '-';
+    final avg = _allTrips.fold<int>(0, (sum, t) => sum + t.score) / _allTrips.length;
     return '${avg.round()}%';
   }
 
@@ -64,6 +71,30 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    _ridesSub = RideService.watchMyRides().listen(
+      (rides) {
+        if (!mounted) return;
+        setState(() {
+          _allTrips = [
+            for (final r in rides)
+              _TripRecord(
+                route: '${r.origin} → ${r.destination}',
+                detail: '${r.durationText} · ${r.distanceKm}km · ${r.dateText}',
+                minutes: r.minutes,
+                score: r.score,
+              ),
+          ];
+        });
+      },
+      // 기록을 못 불러와도 홈은 빈 상태로 정상 동작한다. (자세한 오류는 주행 기록 화면에서 안내)
+      onError: (Object e) => debugPrint('홈: 주행 기록 불러오기 실패: $e'),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ridesSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadProfile() async {
