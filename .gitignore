@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# API secrets (직접 만들어 쓰는 파일, 커밋 금지)
+/lib/config/secrets.dart

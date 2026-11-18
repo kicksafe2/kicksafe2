@@ -1,20 +1,14 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
 
-/// TODO: components/RewardBannerScreen.tsx 내용 보고 실제 UI로 채우기 (Figma 참고)
+import 'badge_map_screen.dart';
+
+/// 리워드 배너 화면.
+/// 디자인(Figma)이 배지 달성 지도 화면과 동일하여 BadgeMapScreen을 그대로 사용함.
 class RewardBannerScreen extends StatelessWidget {
   const RewardBannerScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Center(
-        child: Text(
-          'RewardBannerScreen (구현 예정)',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-      ),
-    );
+    return const BadgeMapScreen();
   }
 }

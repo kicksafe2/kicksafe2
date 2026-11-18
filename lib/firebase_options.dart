@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBErIfQec7_djgv9WF9krMF7SPCSb601W8',
-    appId: '1:369737957258:android:be5106bddc75ff911ed273',
+    appId: '1:369737957258:android:d701f73226a6501e1ed273',
     messagingSenderId: '369737957258',
     projectId: 'kicksafe-7913f',
     storageBucket: 'kicksafe-7913f.firebasestorage.app',
