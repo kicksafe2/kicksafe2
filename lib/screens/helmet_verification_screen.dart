@@ -28,6 +28,10 @@ enum _VerifyResult { success, failed }
 
 class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
     with SingleTickerProviderStateMixin {
+  /// helmet 으로 판정하려면 필요한 최소 확률(0~1). 폰 테스트로 보면서 조정할 것.
+  /// 너무 높으면 실제 헬멧도 실패하고, 너무 낮으면 모자 같은 것도 통과한다.
+  static const double _minHelmetConfidence = 0.90;
+
   static const int _maxAttempts = 5;
   static const Duration _lockDuration = Duration(hours: 24);
   static const String _attemptsKey = 'helmet_attempts';
@@ -183,6 +187,16 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
           return parts.length > 1 ? parts.sublist(1).join(' ') : line;
         })
         .toList();
+
+    // 라벨 파일이 모델과 안 맞으면(파일 손상, 모델만 교체 등) 조용히 오작동하지 않고
+    // 원인이 보이는 오류로 알린다.
+    final outputCount = _interpreter!.getOutputTensor(0).shape.last;
+    if (_labels.length != outputCount) {
+      throw Exception(
+        '모델 출력($outputCount개)과 라벨 파일(${_labels.length}개)이 맞지 않습니다. '
+        'lib/assets/model/labels.txt 를 확인해주세요',
+      );
+    }
   }
 
   Future<void> _initCamera() async {
@@ -276,7 +290,8 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
       if (decoded == null) throw Exception('촬영한 이미지를 디코딩하지 못했습니다.');
 
       final input = _preprocess(decoded);
-      final output = [List.filled(_labels.length, 0.0)];
+      // 출력 칸 크기는 라벨 파일이 아니라 모델의 실제 출력 모양에서 가져온다.
+      final output = [List.filled(interpreter.getOutputTensor(0).shape.last, 0.0)];
       interpreter.run(input, output);
 
       final scores = output[0];
@@ -285,8 +300,10 @@ class _HelmetVerificationScreenState extends State<HelmetVerificationScreen>
         if (scores[i] > scores[bestIndex]) bestIndex = i;
       }
       final label = _labels.isNotEmpty ? _labels[bestIndex] : '';
-      isHelmet = label.toLowerCase().contains('no helmet') == false &&
+      final labelIsHelmet = label.toLowerCase().contains('no helmet') == false &&
           label.toLowerCase().contains('helmet');
+      // 라벨이 helmet 이어도 확신이 낮으면(모자 등 애매한 입력) 통과시키지 않는다.
+      isHelmet = labelIsHelmet && scores[bestIndex] >= _minHelmetConfidence;
       _resultDetail = '$label ${(scores[bestIndex] * 100).toStringAsFixed(1)}%';
       final scoreText = [
         for (var i = 0; i < scores.length; i++)
